@@ -1,0 +1,97 @@
+from django.urls import path
+from vendors.views import (
+    VendorListView,
+    VendorDetailView,
+    VendorPurchaseOrderListView,
+    VendorPurchaseOrderDetailView,
+    VendorPurchaseOrderPDFDownloadView,
+    VendorDetailView,
+    VendorBillListCreateView,
+    VendorBillDetailView,
+    VendorBillLineItemListView,
+    VendorPaymentListCreateView,
+    VendorPaymentDetailView,
+    GoodsReceivedNoteListCreateView,
+    GoodsReceivedNoteDetailView,
+    VendorOutstandingBalanceAdjustmentListAPIView,
+    VendorPaymentReconcileView,
+    PrepaymentAllocationListView,
+    VendorPurchaseOrderLineItemListView,
+    GoodsReceivedNoteLineItemListView,
+)
+
+urlpatterns = [
+    path(
+        "",
+        VendorListView.as_view(),
+        name="vendor-list",
+    ),
+    path(
+        "detail/<uuid:base_uuid>/",
+        VendorDetailView.as_view(),
+        name="vendor-detail",
+    ),
+    path(
+        "purchase-orders/",
+        VendorPurchaseOrderListView.as_view(),
+        name="purchase-order-list",
+    ),
+    path(
+        "purchase-orders/detail/<uuid:base_uuid>/",
+        VendorPurchaseOrderDetailView.as_view(),
+        name="purchase-order-detail",
+    ),
+    path(
+        "purchase-orders/<uuid:base_uuid>/download/",
+        VendorPurchaseOrderPDFDownloadView.as_view(),
+        name="vendor-purchase-order-download",
+    ),
+    path(
+        "purchase-orders/<uuid:base_uuid>/line-items/",
+        VendorPurchaseOrderLineItemListView.as_view(),
+        name="purchase-order-line-item-list",
+    ),
+    path("bills/", VendorBillListCreateView.as_view(), name="bill-list"),
+    path("bills/<uuid:base_uuid>/", VendorBillDetailView.as_view(), name="bill-detail"),
+    path(
+        "bills/<uuid:base_uuid>/line-items/",
+        VendorBillLineItemListView.as_view(),
+        name="bill-line-item-list",
+    ),
+    path("payments/", VendorPaymentListCreateView.as_view(), name="payment-list"),
+    path(
+        "payments/<uuid:base_uuid>/",
+        VendorPaymentDetailView.as_view(),
+        name="payment-detail",
+    ),
+    path(
+        "reconcile-prepayments/",
+        VendorPaymentReconcileView.as_view(),
+        name="vendor-payment-reconcile",
+    ),
+    path(
+        "prepayment-allocations/",
+        PrepaymentAllocationListView.as_view(),
+        name="prepayment-allocation-list",
+    ),
+    path(
+        "goods-received-note/",
+        GoodsReceivedNoteListCreateView.as_view(),
+        name="goods-received-note",
+    ),
+    path(
+        "goods-received-note/detail/<uuid:base_uuid>/",
+        GoodsReceivedNoteDetailView.as_view(),
+        name="goods-received-note-detail",
+    ),
+    path(
+        "goods-received-note/<uuid:base_uuid>/line-items/",
+        GoodsReceivedNoteLineItemListView.as_view(),
+        name="goods-received-note-line-item-list",
+    ),
+    path(
+        "balance-adjustments/<uuid:base_uuid>/",
+        VendorOutstandingBalanceAdjustmentListAPIView.as_view(),
+        name="vendor-balance-adjustments",
+    ),
+]
