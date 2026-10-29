@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import Decimal,ROUND_HALF_UP
 from uuid import UUID
 from celery import shared_task
 from django.conf import settings
@@ -9,6 +9,7 @@ from utilities.helpers import normalize_url
 from fixed_assets.models import AssetCategory, FixedAsset
 from institution.models import Institution
 from accounts.models import Account
+from datetime import date
 
 CHUNK_SIZE = getattr(settings, "BULK_UPLOAD_CHUNK_SIZE", 50)
 
@@ -1375,6 +1376,21 @@ def bulk_create_expenses(
     }
 
 
+def _lump_sum_paid(total_amount, raw_total, paid_raw):
+    total = Decimal(str(total_amount or 0))
+    raw_total = Decimal(str(raw_total or 0))
+    paid_raw = Decimal(str(paid_raw or 0))
+
+    if total <= 0 or raw_total <= 0 or paid_raw <= 0:
+        return Decimal("0.00")
+    if paid_raw >= raw_total:
+        return total
+
+    scaled = (total * paid_raw / raw_total).quantize(
+        Decimal("0.01"), rounding=ROUND_HALF_UP
+    )
+    return min(scaled, total)
+
 @shared_task(bind=True, name="bulk_upload.create_vendor_bills")
 def bulk_create_vendor_bills(
     self,
@@ -1388,7 +1404,7 @@ def bulk_create_vendor_bills(
     from django.contrib.auth import get_user_model
     from users.models import ProfileInstitution, ExternalIdentity
     from vendors.models import VendorBill
-    from vendors.serializers import VendorBillSerializer
+    from vendors.serializers import VendorBillSerializer, VendorPaymentSerializer
 
     try:
         institution = Institution.objects.get(pk=institution_id)
@@ -1449,36 +1465,43 @@ def bulk_create_vendor_bills(
                 serializer.is_valid(raise_exception=True)
                 bill = serializer.save()
 
-                total_amount = Decimal(str(bill.total_amount or 0))
-                raw_total = Decimal(str(group.get("raw_total") or 0))
-                paid_raw = Decimal(str(group.get("paid_raw") or 0))
-                payment_status = group["payment_status"]
-
-                if payment_status == "paid":
-                    balance_due = Decimal("0.00")
-                elif payment_status == "unpaid":
-                    balance_due = total_amount
-                else:
-                    paid_amount = (
-                        (paid_raw / raw_total) * total_amount
-                        if raw_total > Decimal("0")
-                        else total_amount / Decimal("2")
-                    )
-                    balance_due = max(
-                        total_amount - paid_amount,
-                        Decimal("0.00"),
-                    )
-                    if balance_due == Decimal("0.00"):
-                        payment_status = "paid"
-
-                bill.payment_status = payment_status
-                bill.balance_due = balance_due
-                bill.save(update_fields=["payment_status", "balance_due"])
+                due_date = group.get("due_date")
+                if due_date:
+                    bill.due_date = date.fromisoformat(due_date)
+                    bill.save(update_fields=["due_date"])
 
                 bill.confirm_create(
                     profile_institution=profile,
                     external_identity=identity,
                 )
+
+                paid_amount = _lump_sum_paid(
+                    bill.total_amount,
+                    group.get("raw_total"),
+                    group.get("paid_raw"),
+                )
+
+                if paid_amount > Decimal("0.00"):
+                    cash_account = group.get("cash_account")
+                    if not cash_account:
+                        raise ValueError(
+                            "A cash account is required to record the payment."
+                        )
+
+                    payment_serializer = VendorPaymentSerializer(
+                        data={
+                            "bill": str(bill.base_uuid),
+                            "amount": str(paid_amount),
+                            "cash_account_used": cash_account,
+                        },
+                        context={"request": request},
+                    )
+                    payment_serializer.is_valid(raise_exception=True)
+                    payment = payment_serializer.save(branch=bill.branch)
+                    payment.confirm_create(
+                        profile_institution=profile,
+                        external_identity=identity,
+                    )
 
             created_ids.append(bill.pk)
         except Exception as exc:

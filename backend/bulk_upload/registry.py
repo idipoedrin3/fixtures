@@ -173,60 +173,29 @@ VENDOR_BILL_COLUMN_DEFS = [
     {"name": "reference_code", "label": "Reference Code", "required": True, "dropdown": None},
     {"name": "vendor", "label": "Vendor", "required": True, "dropdown": None},
     {"name": "branch", "label": "Branch", "required": False, "dropdown": None},
-    {
-        "name": "payment_terms",
-        "label": "Payment Terms",
-        "required": False,
-        "dropdown": None,
-    },
+    {"name": "payment_terms", "label": "Payment Terms", "required": False, "dropdown": None},
     {
         "name": "type",
         "label": "Type",
         "required": True,
-        "dropdown": ["Inventory", "Service", "Other"],
+        "dropdown": ["Inventory", "Service", "Other", "Other Expense"],
     },
-    {"name": "item", "label": "Item", "required": True, "dropdown": None},
-    {"name": "uom", "label": "UOM", "required": False, "dropdown": None},
+    {"name": "item", "label": "Item", "required": True, "dropdown": None, "strict": False},
+    {"name": "uom", "label": "UOM", "required": False, "dropdown": None, "strict": False},
     {"name": "qty", "label": "Qty", "required": True, "dropdown": None},
-    {
-        "name": "unit_price",
-        "label": "Unit Price (UGX)",
-        "required": True,
-        "dropdown": None,
-    },
-    {
-        "name": "net_amount",
-        "label": "Net Amount (UGX)",
-        "required": False,
-        "dropdown": None,
-    },
-    {
-        "name": "tax_amount",
-        "label": "Tax Amount (UGX)",
-        "required": False,
-        "dropdown": None,
-    },
-    {
-        "name": "gross_amount",
-        "label": "Gross Amount (UGX)",
-        "required": False,
-        "dropdown": None,
-    },
+    {"name": "unit_price", "label": "Unit Price (UGX)", "required": True, "dropdown": None},
+    {"name": "expense_account", "label": "Expense Account", "required": False, "dropdown": None},
+    {"name": "tax", "label": "Tax", "required": False, "dropdown": None},
     {
         "name": "payment_status",
         "label": "Payment Status",
         "required": True,
         "dropdown": ["Paid", "Unpaid", "Partially Paid"],
     },
-    {
-        "name": "received_date",
-        "label": "Received Date",
-        "required": False,
-        "dropdown": None,
-    },
+    {"name": "amount_paid", "label": "Amount Paid (UGX)", "required": False, "dropdown": None},
+    {"name": "cash_account", "label": "Cash Account", "required": False, "dropdown": None},
     {"name": "due_date", "label": "Due Date", "required": False, "dropdown": None},
 ]
-
 
 @dataclass(frozen=True)
 class BulkUploadDefinition:

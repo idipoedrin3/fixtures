@@ -1,0 +1,40 @@
+from django.contrib import admin
+from .models import (
+    Customer,
+    GoodsIssuedNoteLineItem,
+    Quotation,
+    QuotationLineItem,
+    CustomerPurchaseOrder,
+    CustomerPurchaseOrderLineItem,
+    Invoice,
+    InvoiceLineItem,
+    PaymentTerm,
+    SalesPersonCommissionEntry,
+    CreditDebitNotePriceEffect,
+    CreditDebitNote,
+    CustomerDepositAllocation,
+    CustomerPayment,
+    CustomerBalanceAdjustment,
+    RecurringInvoice,
+    RecurringInvoiceItem,
+    GoodsIssuedNote,
+)
+
+admin.site.register(Customer)
+admin.site.register(Quotation)
+admin.site.register(QuotationLineItem)
+admin.site.register(CustomerPurchaseOrder)
+admin.site.register(CustomerPurchaseOrderLineItem)
+admin.site.register(Invoice)
+admin.site.register(InvoiceLineItem)
+admin.site.register(PaymentTerm)
+admin.site.register(SalesPersonCommissionEntry)
+admin.site.register(CreditDebitNotePriceEffect)
+admin.site.register(CreditDebitNote)
+admin.site.register(CustomerDepositAllocation)
+admin.site.register(CustomerPayment)
+admin.site.register(CustomerBalanceAdjustment)
+admin.site.register(RecurringInvoice)
+admin.site.register(RecurringInvoiceItem)
+admin.site.register(GoodsIssuedNote)
+admin.site.register(GoodsIssuedNoteLineItem)

@@ -146,9 +146,7 @@ class BulkUploadParser:
         "code": "reference_code",
         "asset_category": "category",
         "unit_price_ugx": "unit_price",
-        "net_amount_ugx": "net_amount",
-        "tax_amount_ugx": "tax_amount",
-        "gross_amount_ugx": "gross_amount",
+        "amount_paid_ugx": "amount_paid",
         "payment_term": "payment_terms",
         "payment_terms": "payment_terms",
     }
@@ -156,11 +154,8 @@ class BulkUploadParser:
     NUMERIC_COLUMNS = {
         "qty",
         "unit_price",
-        "net_amount",
-        "tax_amount",
-        "gross_amount",
+        "amount_paid",
     }
-
     @classmethod
     def parse(cls, file_obj, file_format, columns):
         if file_format == "excel":
@@ -495,14 +490,21 @@ class TemplateFileService:
             f"'Dropdown Options'!${option_col_letter}$1:"
             f"${option_col_letter}${len(options)}"
         )
+
+        strict = col_def.get("strict", True)
         validation = DataValidation(
             type="list",
             formula1=formula,
             allow_blank=not col_def["required"],
             showDropDown=False,
             showErrorMessage=True,
-            errorTitle="Invalid value",
-            error="Please choose a value from the dropdown list.",
+            errorStyle="stop" if strict else "warning",
+            errorTitle="Invalid value" if strict else "Value not in list",
+            error=(
+                "Please choose a value from the dropdown list."
+                if strict
+                else "This value is not in the list. Continue only if it is intentional."
+            ),
         )
         worksheet.add_data_validation(validation)
         validation.sqref = f"{col_letter}3:{col_letter}{last_data_row}"
@@ -661,7 +663,11 @@ class TemplateDropdownService:
         from customers.models import PaymentTerm
         from institution.models import Branch
         from items.models import InventoryItem, ItemUnitOfMeasure
+        from taxation.models import Tax
         from vendors.models import Vendor
+        from .vendor_bills import cash_account_options
+
+        accounts = cls._leaf_accounts(institution, active_only=True)
 
         return cls._select_requested(
             {
@@ -700,6 +706,18 @@ class TemplateDropdownService:
                     .values_list("unit_name", flat=True)
                     .distinct()
                 ),
+                "expense_account": cls._account_names(
+                    accounts,
+                    account_role__role_group__group_type_name="expense",
+                ),
+                "tax": list(
+                    Tax.objects.active()
+                    .filter(institution=institution)
+                    .order_by("tax_name")
+                    .values_list("tax_name", flat=True)
+                    .distinct()
+                ),
+                "cash_account": cash_account_options(institution),
             },
             col_defs,
         )
