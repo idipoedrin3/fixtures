@@ -137,7 +137,7 @@ export function VendorBillsTable({
             <TableRow>
               <TableHead>
                 <SortableHeader
-                  label="Code"
+                  label="Reference Code"
                   field="reference_code"
                   onSort={onSort}
                   onRemove={onRemoveSort}

@@ -15,7 +15,7 @@ from requisitions.serializers import (
     BulkRequisitionItemUploadSerializer,
     BulkExpenseUploadSerializer,
 )
-from vendors.serializers import VendorSerializer
+from vendors.serializers import BulkVendorBillRowSerializer, VendorSerializer
 
 from .bulk_upload_tasks import (
     bulk_create_charts_of_accounts,
@@ -28,6 +28,7 @@ from .bulk_upload_tasks import (
     bulk_create_salespersons,
     bulk_create_vendors,
     bulk_create_expenses,
+    bulk_create_vendor_bills,
 )
 
 CUSTOMER_COLUMN_DEFS = [
@@ -168,6 +169,64 @@ EXPENSES_COLUMN_DEFS = [
     {"name": "applicable_taxes", "required": False, "dropdown": None},
 ]
 
+VENDOR_BILL_COLUMN_DEFS = [
+    {"name": "reference_code", "label": "Reference Code", "required": True, "dropdown": None},
+    {"name": "vendor", "label": "Vendor", "required": True, "dropdown": None},
+    {"name": "branch", "label": "Branch", "required": False, "dropdown": None},
+    {
+        "name": "payment_terms",
+        "label": "Payment Terms",
+        "required": False,
+        "dropdown": None,
+    },
+    {
+        "name": "type",
+        "label": "Type",
+        "required": True,
+        "dropdown": ["Inventory", "Service", "Other"],
+    },
+    {"name": "item", "label": "Item", "required": True, "dropdown": None},
+    {"name": "uom", "label": "UOM", "required": False, "dropdown": None},
+    {"name": "qty", "label": "Qty", "required": True, "dropdown": None},
+    {
+        "name": "unit_price",
+        "label": "Unit Price (UGX)",
+        "required": True,
+        "dropdown": None,
+    },
+    {
+        "name": "net_amount",
+        "label": "Net Amount (UGX)",
+        "required": False,
+        "dropdown": None,
+    },
+    {
+        "name": "tax_amount",
+        "label": "Tax Amount (UGX)",
+        "required": False,
+        "dropdown": None,
+    },
+    {
+        "name": "gross_amount",
+        "label": "Gross Amount (UGX)",
+        "required": False,
+        "dropdown": None,
+    },
+    {
+        "name": "payment_status",
+        "label": "Payment Status",
+        "required": True,
+        "dropdown": ["Paid", "Unpaid", "Partially Paid"],
+    },
+    {
+        "name": "received_date",
+        "label": "Received Date",
+        "required": False,
+        "dropdown": None,
+    },
+    {"name": "due_date", "label": "Due Date", "required": False, "dropdown": None},
+]
+
 
 @dataclass(frozen=True)
 class BulkUploadDefinition:
@@ -230,5 +289,10 @@ BULK_UPLOAD_REGISTRY = {
         columns=EXPENSES_COLUMN_DEFS,
         serializer=BulkExpenseUploadSerializer,
         task=bulk_create_expenses,
+    ),
+    "vendor_bill": BulkUploadDefinition(
+        columns=VENDOR_BILL_COLUMN_DEFS,
+        serializer=BulkVendorBillRowSerializer,
+        task=bulk_create_vendor_bills,
     ),
 }

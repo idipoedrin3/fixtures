@@ -42,6 +42,30 @@ class BulkUploadService:
                 "total_expenses": len(groups),
             }
 
+        if template_type == "vendor_bill":
+            from .vendor_bills import prepare_vendor_bills
+
+            groups = prepare_vendor_bills(rows, request)
+            result = definition.task.delay(
+                institution_id=institution.pk,
+                groups=groups,
+                requested_by_id=request.user.pk,
+                profile_institution_id=getattr(
+                    getattr(request, "profile_institution", None), "pk", None
+                ),
+                external_identity_id=getattr(
+                    getattr(request, "external_identity", None), "pk", None
+                ),
+            )
+            return {
+                "detail": (
+                    f"{len(groups)} vendor bill(s) queued from {len(rows)} data rows."
+                ),
+                "task_id": result.id,
+                "total_rows": len(rows),
+                "total_bills": len(groups),
+            }
+
         validated_rows, errors = cls._validate_rows(
             rows,
             definition.serializer,
@@ -118,7 +142,24 @@ class BulkUploadService:
 
 
 class BulkUploadParser:
-    HEADER_ALIASES = {"code": "reference_code", "asset_category": "category"}
+    HEADER_ALIASES = {
+        "code": "reference_code",
+        "asset_category": "category",
+        "unit_price_ugx": "unit_price",
+        "net_amount_ugx": "net_amount",
+        "tax_amount_ugx": "tax_amount",
+        "gross_amount_ugx": "gross_amount",
+        "payment_term": "payment_terms",
+        "payment_terms": "payment_terms",
+    }
+
+    NUMERIC_COLUMNS = {
+        "qty",
+        "unit_price",
+        "net_amount",
+        "tax_amount",
+        "gross_amount",
+    }
 
     @classmethod
     def parse(cls, file_obj, file_format, columns):
@@ -193,6 +234,14 @@ class BulkUploadParser:
                             value = Decimal(str(raw))
                         except Exception:
                             raise validation_error(f"Invalid {col_name} value: {raw}")
+                    obj[col_name] = value
+                    continue
+
+                if col_name in cls.NUMERIC_COLUMNS:
+                    if raw is None or (isinstance(raw, str) and raw.strip() == ""):
+                        value = None
+                    else:
+                        value = str(raw).strip().replace(",", "")
                     obj[col_name] = value
                     continue
 
@@ -277,6 +326,8 @@ class BulkUploadParser:
                             value = False
                         else:
                             raise validation_error(f"Invalid {key} value: {raw}")
+                elif key in cls.NUMERIC_COLUMNS:
+                    value = raw.replace(",", "") if raw != "" else None
                 elif key == "website" and raw:
                     value = normalize_url(raw)
                 else:
@@ -501,6 +552,7 @@ class TemplateDropdownService:
         "fixed_asset_items": "_fixed_asset_item_dropdowns",
         "charts_of_accounts": "_chart_of_accounts_dropdowns",
         "inventory_item_categories": "_inventory_category_dropdowns",
+        "vendor_bill": "_vendor_bill_dropdowns",
     }
 
     @staticmethod
@@ -601,6 +653,54 @@ class TemplateDropdownService:
 
         return cls._select_requested(
             {"category": categories},
+            col_defs,
+        )
+
+    @classmethod
+    def _vendor_bill_dropdowns(cls, institution, col_defs):
+        from customers.models import PaymentTerm
+        from institution.models import Branch
+        from items.models import InventoryItem, ItemUnitOfMeasure
+        from vendors.models import Vendor
+
+        return cls._select_requested(
+            {
+                "vendor": list(
+                    Vendor.objects.active()
+                    .filter(institution=institution)
+                    .order_by("vendor_name")
+                    .values_list("vendor_name", flat=True)
+                    .distinct()
+                ),
+                "branch": list(
+                    Branch.objects.active()
+                    .filter(institution=institution)
+                    .order_by("branch_name")
+                    .values_list("branch_name", flat=True)
+                    .distinct()
+                ),
+                "payment_terms": list(
+                    PaymentTerm.objects.active()
+                    .filter(institution=institution)
+                    .order_by("term_name")
+                    .values_list("term_name", flat=True)
+                    .distinct()
+                ),
+                "item": list(
+                    InventoryItem.objects.active()
+                    .filter(institution=institution)
+                    .order_by("item_name")
+                    .values_list("item_name", flat=True)
+                    .distinct()
+                ),
+                "uom": list(
+                    ItemUnitOfMeasure.objects.active()
+                    .filter(institution=institution)
+                    .order_by("unit_name")
+                    .values_list("unit_name", flat=True)
+                    .distinct()
+                ),
+            },
             col_defs,
         )
 

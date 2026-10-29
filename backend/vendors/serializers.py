@@ -28,7 +28,7 @@ from .models import (
     VendorOutstandingBalanceAdjustment,
     PrepaymentAllocation,
 )
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from datetime import date
 from items.models import InventoryItem, InventoryItemUnitOfMeasure
 from django.db import transaction as db_transaction
@@ -1305,6 +1305,58 @@ class OtherVendorBillLineItemInputSerializer(serializers.Serializer):
         return data
 
 
+class BulkVendorBillRowSerializer(serializers.Serializer):
+    reference_code = serializers.CharField(max_length=100)
+    vendor = serializers.CharField(max_length=255)
+    branch = serializers.CharField(
+        max_length=255,
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+    )
+    payment_terms = serializers.CharField(
+        max_length=255,
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+    )
+    type = serializers.CharField(max_length=50)
+    item = serializers.CharField(max_length=255)
+    uom = serializers.CharField(
+        max_length=255,
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+    )
+    qty = serializers.IntegerField(min_value=1)
+    unit_price = serializers.DecimalField(
+        max_digits=50,
+        decimal_places=20,
+        min_value=Decimal("0.00"),
+    )
+    net_amount = serializers.DecimalField(
+        max_digits=50,
+        decimal_places=20,
+        required=False,
+        allow_null=True,
+    )
+    tax_amount = serializers.DecimalField(
+        max_digits=50,
+        decimal_places=20,
+        required=False,
+        allow_null=True,
+    )
+    gross_amount = serializers.DecimalField(
+        max_digits=50,
+        decimal_places=20,
+        required=False,
+        allow_null=True,
+    )
+    payment_status = serializers.CharField(max_length=50)
+    received_date = serializers.DateField(required=False, allow_null=True)
+    due_date = serializers.DateField(required=False, allow_null=True)
+
+
 class VendorBillSerializer(ContentTypeIdSerializerMixin):
     inventory_line_items = InventoryVendorBillLineItemInputSerializer(
         many=True, write_only=True, required=False
@@ -1348,7 +1400,6 @@ class VendorBillSerializer(ContentTypeIdSerializerMixin):
             "total_amount",
             "total_net_amount",
             "total_tax_amount",
-            "reference_code",
             "status",
             "balance_due",
             "are_initial_journal_entries_made",
@@ -1397,6 +1448,35 @@ class VendorBillSerializer(ContentTypeIdSerializerMixin):
         attrs["institution"] = get_institution(self.context.get("request"))
 
         return attrs
+
+    def validate_reference_code(self, value):
+        value = str(value or "").strip()
+        if not value:
+            return None
+
+        institution = get_institution(self.context.get("request"))
+        if institution is None:
+            return value
+
+        queryset = VendorBill.objects.filter(
+            reference_code__iexact=value,
+        ).filter(
+            Q(vendor__institution=institution)
+            | Q(purchase_order__vendor__institution=institution)
+        )
+        if self.instance is not None:
+            queryset = queryset.exclude(pk=self.instance.pk)
+
+        if queryset.exists():
+            raise validation_error(
+                {
+                    "reference_code": (
+                        "A vendor bill with this reference code already exists."
+                    )
+                }
+            )
+
+        return value
 
     def to_representation(self, instance):
         repr = super().to_representation(instance)

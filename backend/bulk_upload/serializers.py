@@ -12,6 +12,7 @@ TEMPLATE_CHOICES = [
     "charts_of_accounts",
     "inventory_units_of_measure",
     "inventory_item_categories",
+    "vendor_bill",
 ]
 
 

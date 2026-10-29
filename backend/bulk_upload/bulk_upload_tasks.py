@@ -1373,3 +1373,128 @@ def bulk_create_expenses(
         "created_ids": created_ids,
         "errors": errors,
     }
+
+
+@shared_task(bind=True, name="bulk_upload.create_vendor_bills")
+def bulk_create_vendor_bills(
+    self,
+    institution_id,
+    groups,
+    requested_by_id,
+    profile_institution_id=None,
+    external_identity_id=None,
+):
+    from types import SimpleNamespace
+    from django.contrib.auth import get_user_model
+    from users.models import ProfileInstitution, ExternalIdentity
+    from vendors.models import VendorBill
+    from vendors.serializers import VendorBillSerializer
+
+    try:
+        institution = Institution.objects.get(pk=institution_id)
+    except Institution.DoesNotExist:
+        return {"status": "failed", "error": "Institution not found."}
+
+    try:
+        user = get_user_model().objects.get(pk=requested_by_id)
+    except get_user_model().DoesNotExist:
+        return {"status": "failed", "error": "Requesting user not found."}
+
+    profile = ProfileInstitution.objects.filter(
+        pk=profile_institution_id,
+        institution=institution,
+        profile__user=user,
+        is_active=True,
+    ).first()
+    identity = ExternalIdentity.objects.filter(
+        pk=external_identity_id,
+        institution=institution,
+        user=user,
+        is_active=True,
+    ).first()
+
+    if profile_institution_id and profile is None:
+        raise ValueError("The requesting institution profile is no longer active.")
+    if external_identity_id and identity is None:
+        raise ValueError("The requesting external identity is no longer active.")
+
+    request = SimpleNamespace(
+        institution=institution,
+        user=user,
+        profile_institution=profile,
+        external_identity=identity,
+    )
+
+    created_ids = []
+    errors = []
+
+    for group in groups:
+        try:
+            with transaction.atomic():
+                Institution.objects.select_for_update().get(pk=institution_id)
+                reference = group["reference_code"]
+
+                if VendorBill.objects.filter(
+                    institution=institution,
+                    reference_code__iexact=reference,
+                ).exists():
+                    raise ValueError(
+                        f"Vendor bill reference '{reference}' already exists."
+                    )
+
+                serializer = VendorBillSerializer(
+                    data=group["payload"],
+                    context={"request": request},
+                )
+                serializer.is_valid(raise_exception=True)
+                bill = serializer.save()
+
+                total_amount = Decimal(str(bill.total_amount or 0))
+                raw_total = Decimal(str(group.get("raw_total") or 0))
+                paid_raw = Decimal(str(group.get("paid_raw") or 0))
+                payment_status = group["payment_status"]
+
+                if payment_status == "paid":
+                    balance_due = Decimal("0.00")
+                elif payment_status == "unpaid":
+                    balance_due = total_amount
+                else:
+                    paid_amount = (
+                        (paid_raw / raw_total) * total_amount
+                        if raw_total > Decimal("0")
+                        else total_amount / Decimal("2")
+                    )
+                    balance_due = max(
+                        total_amount - paid_amount,
+                        Decimal("0.00"),
+                    )
+                    if balance_due == Decimal("0.00"):
+                        payment_status = "paid"
+
+                bill.payment_status = payment_status
+                bill.balance_due = balance_due
+                bill.save(update_fields=["payment_status", "balance_due"])
+
+                bill.confirm_create(
+                    profile_institution=profile,
+                    external_identity=identity,
+                )
+
+            created_ids.append(bill.pk)
+        except Exception as exc:
+            errors.append(
+                {
+                    "data_rows": group["rows"],
+                    "reference_code": group["reference_code"],
+                    "error": str(exc),
+                }
+            )
+
+    return {
+        "status": "completed",
+        "total": len(groups),
+        "created": len(created_ids),
+        "failed": len(errors),
+        "created_ids": created_ids,
+        "errors": errors,
+    }

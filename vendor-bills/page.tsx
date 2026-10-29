@@ -18,6 +18,13 @@ import {PERMISSION_CODES} from "#/_constants/enums";
 import ProtectedComponent from "#/_components/custom/protected-component";
 import {FeatureReportExport} from "#/_components/common/feature-report-export";
 import {useSorting} from "#/_components/common/use-sorting";
+import BulkUploadDialog from "#/_components/custom/bulk-upload";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function VendorBillsPage() {
   const router = useRouter();
@@ -34,13 +41,11 @@ export default function VendorBillsPage() {
   const [debouncedVendorSearch, setDebouncedVendorSearch] = useState("");
   const [vendorsLoading, setVendorsLoading] = useState(false);
   const [vendorFilterOpened, setVendorFilterOpened] = useState(false);
+  const [isFileDialogOpen, setIsFileDialogOpen] = useState(false);
   const {ordering, handleSort, removeSort, isAsc, isDesc} = useSorting();
 
   useEffect(() => {
-    const timeout = window.setTimeout(
-      () => setDebouncedVendorSearch(vendorSearch.trim()),
-      300,
-    );
+    const timeout = window.setTimeout(() => setDebouncedVendorSearch(vendorSearch.trim()), 300);
     return () => window.clearTimeout(timeout);
   }, [vendorSearch]);
 
@@ -132,10 +137,22 @@ export default function VendorBillsPage() {
           </div>
           <div className="flex-grow flex justify-end gap-2">
             <ProtectedComponent permissionCode={PERMISSION_CODES.CAN_CREATE_VENDOR_BILLS}>
-              <Button onClick={() => router.push("/vendor-bills/create")} className="rounded-xl">
-                <Icon icon="hugeicons:add-01" className="w-4 h-4 mr-2" />
-                New Bill
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button className="flex items-center gap-2 rounded-xl">
+                    <Icon icon="hugeicons:add-01" className="w-4 h-4" />
+                    <span>Add Bill</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={() => router.push("/vendor-bills/create")}>
+                    Add Single Bill
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setIsFileDialogOpen(true)}>
+                    Bulk Upload
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </ProtectedComponent>
             <FeatureReportExport feature="VendorBill" />
           </div>
@@ -166,30 +183,41 @@ export default function VendorBillsPage() {
         }}
       >
         {({data, loading, refresh}) => (
-          <VendorBillsTable
-            bills={data?.results || []}
-            isLoading={loading}
-            onBillDeleted={refresh}
-            onSort={handleSort}
-            onRemoveSort={removeSort}
-            isAsc={isAsc}
-            isDesc={isDesc}
-            status={status}
-            onStatusChange={setStatus}
-            paymentStatus={paymentStatus}
-            onPaymentStatusChange={setPaymentStatus}
-            grnStatus={grnStatus}
-            onGrnStatusChange={setGrnStatus}
-            vendorFilter={vendorFilter}
-            onVendorFilterChange={setVendorFilter}
-            vendorOptions={vendorOptions}
-            vendorSearch={vendorSearch}
-            onVendorSearchChange={handleVendorSearchChange}
-            vendorsLoading={vendorsLoading}
-            vendorHasMore={Boolean(vendorNext)}
-            onLoadMoreVendors={handleLoadMoreVendors}
-            onVendorFilterOpen={() => setVendorFilterOpened(true)}
-          />
+          <>
+            <VendorBillsTable
+              bills={data?.results || []}
+              isLoading={loading}
+              onBillDeleted={refresh}
+              onSort={handleSort}
+              onRemoveSort={removeSort}
+              isAsc={isAsc}
+              isDesc={isDesc}
+              status={status}
+              onStatusChange={setStatus}
+              paymentStatus={paymentStatus}
+              onPaymentStatusChange={setPaymentStatus}
+              grnStatus={grnStatus}
+              onGrnStatusChange={setGrnStatus}
+              vendorFilter={vendorFilter}
+              onVendorFilterChange={setVendorFilter}
+              vendorOptions={vendorOptions}
+              vendorSearch={vendorSearch}
+              onVendorSearchChange={handleVendorSearchChange}
+              vendorsLoading={vendorsLoading}
+              vendorHasMore={Boolean(vendorNext)}
+              onLoadMoreVendors={handleLoadMoreVendors}
+              onVendorFilterOpen={() => setVendorFilterOpened(true)}
+            />
+            <BulkUploadDialog
+              title="Add Vendor Bills by File"
+              isOpen={isFileDialogOpen}
+              onOpenChange={(open) => setIsFileDialogOpen(!!open)}
+              onSuccess={refresh}
+              templateName="vendor-bills"
+              templateURL={"bulk_upload/"}
+              templateType="vendor_bill"
+            />
+          </>
         )}
       </PaginatedTableWrapper>
     </PageLayout>

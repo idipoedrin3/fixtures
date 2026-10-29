@@ -18,6 +18,7 @@ import TaxPicker from "#/_components/custom/tax-picker";
 import {useToast} from "#/_hooks/use-toast";
 import {IVendor, IVendorBillFormData, IVendorPurchaseOrder} from "#/_types/api.types";
 import {Button} from "@/components/ui/button";
+import {Input} from "@/components/ui/input";
 import {Label} from "@/components/ui/label";
 import {Switch} from "@/components/ui/switch";
 import {Textarea} from "@/components/ui/textarea";
@@ -120,9 +121,10 @@ export default function VendorBillCreatePage() {
 
         const unified: UnifiedLineItem[] = [
           ...(itemResponse.line_items ?? []).map((item: any) => ({
-            type: item.item_type === "inventory" && item.inventory_item?.item_type === "SERVICES"
-              ? "service" as const
-              : item.item_type as "inventory" | "other" | "fixed_asset",
+            type:
+              item.item_type === "inventory" && item.inventory_item?.item_type === "SERVICES"
+                ? ("service" as const)
+                : (item.item_type as "inventory" | "other" | "fixed_asset"),
             line_item:
               item.item_type === "inventory"
                 ? (item.inventory_item?.base_uuid ?? "")
@@ -321,9 +323,10 @@ export default function VendorBillCreatePage() {
         const pricing = await calculateInventoryTaxPricing(i);
 
         return {
-          type: i.inventory_item?.item_type === "SERVICES"
-              ? "service" as const
-              : "inventory" as const,
+          type:
+            i.inventory_item?.item_type === "SERVICES"
+              ? ("service" as const)
+              : ("inventory" as const),
           line_item: i.inventory_item?.base_uuid ?? String(i.id),
           item_name: i.inventory_item?.item_name ?? "",
           quantity: i.quantity,
@@ -398,11 +401,7 @@ export default function VendorBillCreatePage() {
       }),
     );
 
-    return [
-      ...inventoryItems,
-      ...otherItems,
-      ...fixedAssetItems,
-    ];
+    return [...inventoryItems, ...otherItems, ...fixedAssetItems];
   };
 
   useEffect(() => {
@@ -463,8 +462,7 @@ export default function VendorBillCreatePage() {
       if (item.type !== "inventory" && item.type !== "service") return;
 
       const inventoryItemUuid =
-        item.item?.base_uuid ??
-        (typeof item.line_item === "string" ? item.line_item : undefined);
+        item.item?.base_uuid ?? (typeof item.line_item === "string" ? item.line_item : undefined);
       const unitOfMeasureUuid =
         item.selected_uom_uuid ??
         (typeof item.unit_of_measure === "string" ? item.unit_of_measure : undefined);
@@ -525,6 +523,9 @@ export default function VendorBillCreatePage() {
               ? {vendor: formData.vendor}
               : {}),
           ...(formData.description && {description: formData.description}),
+          ...(formData.reference_code?.trim()
+            ? {reference_code: formData.reference_code.trim()}
+            : {}),
           ...(formData.payment_terms ? {payment_terms: formData.payment_terms} : {}),
           ...(formData.branch ? {branch: formData.branch} : {}),
           ...(isForeignCurrencyOrder && formData.exchange_rate
@@ -534,8 +535,7 @@ export default function VendorBillCreatePage() {
             ? {
                 inventory_line_items: inventoryItems.map((i) => ({
                   line_item: i.item?.base_uuid ?? (i.line_item as string),
-                  unit_of_measure:
-                    i.selected_uom_uuid ?? (i.unit_of_measure as string),
+                  unit_of_measure: i.selected_uom_uuid ?? (i.unit_of_measure as string),
                   quantity: i.quantity,
                   unit_price: i.unit_price,
                 })),
@@ -754,6 +754,19 @@ export default function VendorBillCreatePage() {
                 )}
               </div>
             )}
+
+            <div>
+              <Label showOptional htmlFor="reference-code">
+                Reference Code
+              </Label>
+              <Input
+                id="reference-code"
+                value={formData.reference_code ?? ""}
+                onChange={(e) => setField("reference_code", e.target.value)}
+                placeholder="Leave blank to generate automatically"
+                className="rounded-xl"
+              />
+            </div>
 
             <div>
               <Label showOptional htmlFor="branch">

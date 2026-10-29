@@ -41,6 +41,21 @@ class BulkUploadView(APIView):
                 ),
             )
 
+        if str(template_type or "").lower() == "vendor_bill":
+            from types import SimpleNamespace
+            from users.permissions import HasInstitutionPermission
+
+            HasInstitutionPermission().has_permission(
+                request,
+                SimpleNamespace(
+                    required_permissions={
+                        "get": "can_create_vendor_bills",
+                        "post": "can_create_vendor_bills",
+                    },
+                    required_features=set(),
+                ),
+            )
+
     @extend_schema(
         parameters=[
             OpenApiParameter(
@@ -58,6 +73,7 @@ class BulkUploadView(APIView):
                     "inventory_units_of_measure",
                     "inventory_item_categories",
                     "expenses",
+                    "vendor_bill",
                 ],
             ),
             OpenApiParameter(
